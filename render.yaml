@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: personal-color
+    env: python
+    repo: https://github.com/xiaoyang911115/personal-color
+    branch: master
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    plan: free
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
