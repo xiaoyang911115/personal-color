@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Color 个人色彩诊断 | 韩国12型分析</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- 顶部导航 -->
+    <header class="header">
+        <div class="container">
+            <h1>🎨 Personal Color 个人色彩诊断</h1>
+            <p class="subtitle">基于韩国12型体系 · 肤色分析 + 问卷诊断 · 找到最适合你的颜色</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- 步骤指示器 -->
+        <div class="steps" id="steps">
+            <div class="step active" data-step="1">
+                <span class="step-number">1</span>
+                <span class="step-label">上传照片</span>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step" data-step="2">
+                <span class="step-number">2</span>
+                <span class="step-label">诊断问卷</span>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step" data-step="3">
+                <span class="step-number">3</span>
+                <span class="step-label">查看结果</span>
+            </div>
+        </div>
+
+        <!-- ===== 步骤 1: 上传照片 ===== -->
+        <section class="section" id="section-upload">
+            <h2>📸 上传你的照片</h2>
+
+            <!-- 色卡区域 -->
+            <div class="color-card-guide">
+                <h3>📋 参考色卡（请将此色卡放在脸旁边一起拍照）</h3>
+                <p class="guide-text">拍照技巧：用另一台设备打开此页面显示色卡，或将色卡截图打印后放在脸旁。在自然光下、素颜拍摄效果最佳。</p>
+                <div class="reference-card" id="reference-card">
+                    <div class="card-swatch" style="background:#fff" data-name="white"><span>白</span></div>
+                    <div class="card-swatch" style="background:#ddd" data-name="light_gray"><span>浅灰</span></div>
+                    <div class="card-swatch" style="background:#808080" data-name="neutral_gray"><span>灰</span></div>
+                    <div class="card-swatch" style="background:#3c3c3c" data-name="dark_gray"><span>深灰</span></div>
+                    <div class="card-swatch" style="background:#000" data-name="black"><span>黑</span></div>
+                    <div class="card-swatch" style="background:#ddc0a2" data-name="warm_beige"><span>暖米</span></div>
+                    <div class="card-swatch" style="background:#dcaab9" data-name="cool_pink"><span>冷粉</span></div>
+                    <div class="card-swatch" style="background:#ffdc64" data-name="warm_yellow"><span>暖黄</span></div>
+                    <div class="card-swatch" style="background:#6495ed" data-name="cool_blue"><span>冷蓝</span></div>
+                    <div class="card-swatch" style="background:#dc3232" data-name="true_red"><span>正红</span></div>
+                </div>
+            </div>
+
+            <!-- 上传区域 -->
+            <div class="upload-area" id="upload-area">
+                <input type="file" id="photo-input" accept="image/*" capture="environment" hidden>
+                <div class="upload-content">
+                    <div class="upload-icon">📷</div>
+                    <p class="upload-text">点击上传或拖拽照片到这里</p>
+                    <p class="upload-hint">支持 JPG / PNG / WebP · 建议正面自然光素颜照</p>
+                </div>
+            </div>
+
+            <!-- 预览区域 -->
+            <div class="preview-area" id="preview-area" style="display:none">
+                <div class="preview-container">
+                    <img id="preview-img" src="" alt="预览">
+                    <div class="face-selector" id="face-selector"></div>
+                </div>
+                <div class="preview-actions">
+                    <button class="btn btn-secondary" id="btn-reselect">重新选择</button>
+                    <p class="preview-hint">💡 拖拽选框调整面部区域，或直接进入下一步（系统会自动检测中心区域）</p>
+                </div>
+            </div>
+
+            <div class="section-actions">
+                <button class="btn btn-primary" id="btn-next-step" disabled>下一步：诊断问卷 →</button>
+            </div>
+        </section>
+
+        <!-- ===== 步骤 2: 诊断问卷 ===== -->
+        <section class="section" id="section-quiz" style="display:none">
+            <h2>📝 个人色彩诊断问卷</h2>
+            <p class="quiz-intro">请根据你的实际情况选择最符合的选项。越诚实，结果越准确！</p>
+
+            <form id="quiz-form">
+                <!-- Q1 -->
+                <div class="quiz-item">
+                    <div class="quiz-question">
+                        <span class="quiz-number">Q1</span>
+                        <span>你手腕内侧的血管颜色是？</span>
+                    </div>
+                    <div class="quiz-options">
+                        <label class="quiz-option">
+                            <input type="radio" name="q1_vein" value="blue_purple">
+                            <span class="option-visual vein-blue"></span>
+                            <span>蓝紫色</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q1_vein" value="green">
+                            <span class="option-visual vein-green"></span>
+                            <span>绿色</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q1_vein" value="both">
+                            <span class="option-visual vein-both"></span>
+                            <span>都有 / 分不清</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Q2 -->
+                <div class="quiz-item">
+                    <div class="quiz-question">
+                        <span class="quiz-number">Q2</span>
+                        <span>金色和银色首饰，哪个更衬你的肤色？</span>
+                    </div>
+                    <div class="quiz-options">
+                        <label class="quiz-option">
+                            <input type="radio" name="q2_jewelry" value="silver">
+                            <span class="option-visual jewelry-silver">🥈</span>
+                            <span>银色更适合我</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q2_jewelry" value="gold">
+                            <span class="option-visual jewelry-gold">🥇</span>
+                            <span>金色更适合我</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q2_jewelry" value="both">
+                            <span>两个都好看</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Q3 -->
+                <div class="quiz-item">
+                    <div class="quiz-question">
+                        <span class="quiz-number">Q3</span>
+                        <span>晒太阳后，你的皮肤反应是？</span>
+                    </div>
+                    <div class="quiz-options">
+                        <label class="quiz-option">
+                            <input type="radio" name="q3_sun" value="red_first">
+                            <span>先发红，后可能变黑</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q3_sun" value="tan_direct">
+                            <span>直接晒黑，不易发红</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q3_sun" value="both">
+                            <span>都有 / 不确定</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Q4 -->
+                <div class="quiz-item">
+                    <div class="quiz-question">
+                        <span class="quiz-number">Q4</span>
+                        <span>下面哪种口红颜色你涂起来更好看？</span>
+                    </div>
+                    <div class="quiz-options">
+                        <label class="quiz-option">
+                            <input type="radio" name="q4_lipstick" value="pink_berry">
+                            <span class="option-visual lip-cool" style="background:#e06090;border-radius:50%;width:24px;height:24px;"></span>
+                            <span>粉色 / 莓果色系</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q4_lipstick" value="coral_orange">
+                            <span class="option-visual lip-warm" style="background:#ff6f61;border-radius:50%;width:24px;height:24px;"></span>
+                            <span>珊瑚色 / 橘色系</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q4_lipstick" value="both">
+                            <span>两个都可以</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Q5 -->
+                <div class="quiz-item">
+                    <div class="quiz-question">
+                        <span class="quiz-number">Q5</span>
+                        <span>把白纸放在脸旁边对比，你的肤色看起来？</span>
+                    </div>
+                    <div class="quiz-options">
+                        <label class="quiz-option">
+                            <input type="radio" name="q5_white" value="pinkish">
+                            <span>偏粉 / 偏冷白</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q5_white" value="yellowish">
+                            <span>偏黄 / 偏暖</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q5_white" value="neither">
+                            <span>不太确定</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Q6 -->
+                <div class="quiz-item">
+                    <div class="quiz-question">
+                        <span class="quiz-number">Q6</span>
+                        <span>你的粉底液通常用什么色调？</span>
+                    </div>
+                    <div class="quiz-options">
+                        <label class="quiz-option">
+                            <input type="radio" name="q6_foundation" value="cool">
+                            <span>冷调（粉调 / 瓷白色号）</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q6_foundation" value="warm">
+                            <span>暖调（黄调 / 自然色号）</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q6_foundation" value="neutral">
+                            <span>中性调 / 不化妆</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Q7 -->
+                <div class="quiz-item">
+                    <div class="quiz-question">
+                        <span class="quiz-number">Q7</span>
+                        <span>你的瞳孔和头发颜色给人什么感觉？</span>
+                    </div>
+                    <div class="quiz-options">
+                        <label class="quiz-option">
+                            <input type="radio" name="q7_eyes_hair" value="dark_clear">
+                            <span>深色鲜明，对比强（黑发深瞳）</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q7_eyes_hair" value="soft_brown">
+                            <span>柔和棕色，对比柔和（棕发浅瞳）</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q7_eyes_hair" value="light">
+                            <span>颜色较浅，整体明亮</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Q8 -->
+                <div class="quiz-item">
+                    <div class="quiz-question">
+                        <span class="quiz-number">Q8</span>
+                        <span>你平时更喜欢哪种穿搭风格？</span>
+                    </div>
+                    <div class="quiz-options">
+                        <label class="quiz-option">
+                            <input type="radio" name="q8_style" value="vivid">
+                            <span>鲜艳明亮、色彩对比</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q8_style" value="soft">
+                            <span>柔和低调、莫兰迪色系</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q8_style" value="dark">
+                            <span>深色沉稳、成熟大气</span>
+                        </label>
+                        <label class="quiz-option">
+                            <input type="radio" name="q8_style" value="light">
+                            <span>浅色轻盈、温柔甜美</span>
+                        </label>
+                    </div>
+                </div>
+            </form>
+
+            <div class="section-actions">
+                <button class="btn btn-secondary" id="btn-prev-step">← 上一步</button>
+                <button class="btn btn-primary" id="btn-analyze">✨ 开始分析</button>
+            </div>
+        </section>
+
+        <!-- ===== 步骤 3: 结果展示 ===== -->
+        <section class="section" id="section-result" style="display:none">
+            <!-- 加载动画 -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>正在分析你的个人色彩...</p>
+                <p class="loading-sub">提取肤色 · 分析冷暖调 · 匹配12型</p>
+            </div>
+
+            <!-- 结果内容 -->
+            <div class="result-content" id="result-content" style="display:none">
+                <div class="result-header">
+                    <h2 class="result-type" id="result-type-name"></h2>
+                    <p class="result-kr" id="result-type-kr"></p>
+                    <div class="result-badge" id="result-badge"></div>
+                </div>
+
+                <div class="result-card">
+                    <h3>📊 诊断分析</h3>
+                    <div class="result-grid">
+                        <div class="result-item">
+                            <span class="result-label">肤色色调</span>
+                            <span class="result-value" id="result-warm-cool"></span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">饱和度</span>
+                            <span class="result-value" id="result-saturation"></span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">明度</span>
+                            <span class="result-value" id="result-brightness"></span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">置信度</span>
+                            <span class="result-value" id="result-confidence"></span>
+                        </div>
+                    </div>
+                    <div class="skin-color-display">
+                        <span>检测到的肤色：</span>
+                        <span class="skin-swatch" id="skin-swatch"></span>
+                        <span id="skin-hex"></span>
+                    </div>
+                </div>
+
+                <div class="result-card">
+                    <h3>🎨 最适合你的颜色</h3>
+                    <div class="color-palette" id="best-colors"></div>
+                </div>
+
+                <div class="result-card">
+                    <h3>⚠️ 需要避开的颜色</h3>
+                    <div class="color-palette" id="worst-colors"></div>
+                </div>
+
+                <div class="result-card">
+                    <h3>💄 推荐口红色号</h3>
+                    <ul class="result-list" id="lipstick-list"></ul>
+                </div>
+
+                <div class="result-card">
+                    <h3>💇 适合的发色</h3>
+                    <ul class="result-list" id="hair-list"></ul>
+                </div>
+
+                <div class="result-card">
+                    <h3>👗 穿搭风格建议</h3>
+                    <p class="result-description" id="result-style"></p>
+                </div>
+
+                <div class="result-card">
+                    <h3>⭐ 与你同型的明星</h3>
+                    <div class="celebrity-list" id="celebrity-list"></div>
+                </div>
+
+                <div class="result-card">
+                    <h3>🔑 关键词</h3>
+                    <div class="keyword-list" id="keyword-list"></div>
+                </div>
+
+                <div class="result-card">
+                    <h3>📈 评分详情</h3>
+                    <div class="score-bars" id="score-bars"></div>
+                </div>
+
+                <div class="section-actions">
+                    <button class="btn btn-primary" id="btn-restart">🔄 重新测试</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>Personal Color 个人色彩诊断 · 韩国12型体系 · 仅供参考，专业诊断请咨询色彩顾问</p>
+    </footer>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
