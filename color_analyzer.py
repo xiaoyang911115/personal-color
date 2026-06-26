@@ -11,7 +11,6 @@ import colorsys
 import math
 
 # ─── 标准色卡定义 ───
-# 用户拍照时需在屏幕上显示此色卡，放在脸旁一起拍
 REFERENCE_COLOR_CARD = {
     "white": (255, 255, 255),
     "black": (0, 0, 0),
@@ -25,7 +24,7 @@ REFERENCE_COLOR_CARD = {
     "dark_gray": (60, 60, 60),
 }
 
-# 12型色彩推荐色卡（每个类型的标志色和推荐色）
+# 12型色彩推荐色卡
 COLOR_RECOMMENDATIONS = {
     "spring_light": {
         "name": "🌸 春亮型 (Spring Light)",
@@ -257,13 +256,12 @@ COLOR_RECOMMENDATIONS = {
     },
 }
 
-
 @dataclass
 class SkinAnalysis:
     """肤色分析结果"""
-    h: float  # 色相 0-360
-    s: float  # 饱和度 0-100
-    v: float  # 明度 0-100
+    h: float
+    s: float
+    v: float
     r: int
     g: int
     b: int
@@ -271,177 +269,100 @@ class SkinAnalysis:
     lab_a: float = 0
     lab_b: float = 0
 
-
 @dataclass
 class PersonalColorResult:
     """个人色彩诊断完整结果"""
-    season_type: str  # 12型 key
-    warm_cool: str  # "warm" / "cool" / "neutral"
-    saturation_level: str  # "soft" / "medium" / "clear"
-    brightness_level: str  # "light" / "medium" / "deep"
-    confidence: float  # 置信度 0-1
+    season_type: str
+    warm_cool: str
+    saturation_level: str
+    brightness_level: str
+    confidence: float
     skin_analysis: SkinAnalysis
     questionnaire_scores: Dict[str, float]
     final_score: Dict[str, float]
     recommendations: Dict
 
-
 def rgb_to_hsv(r, g, b):
-    """RGB 转 HSV"""
     r, g, b = r / 255.0, g / 255.0, b / 255.0
     h, s, v = colorsys.rgb_to_hsv(r, g, b)
     return h * 360, s * 100, v * 100
 
-
 def rgb_to_lab(r, g, b):
-    """简化 RGB → CIE Lab（近似转换）"""
-    # 先转 XYZ
     r, g, b = r / 255.0, g / 255.0, b / 255.0
-
     def linearize(c):
         if c > 0.04045:
             return ((c + 0.055) / 1.055) ** 2.4
         return c / 12.92
-
     r, g, b = linearize(r), linearize(g), linearize(b)
     x = r * 0.4124 + g * 0.3576 + b * 0.1805
     y = r * 0.2126 + g * 0.7152 + b * 0.0722
     z = r * 0.0193 + g * 0.1192 + b * 0.9505
-
-    # XYZ → Lab (D65)
     xn, yn, zn = 0.95047, 1.0, 1.08883
-
     def f(t):
         delta = 6 / 29
         if t > delta ** 3:
             return t ** (1 / 3)
         return t / (3 * delta ** 2) + 4 / 29
-
     l = 116 * f(y / yn) - 16
     a = 500 * (f(x / xn) - f(y / yn))
     b_val = 200 * (f(y / yn) - f(z / zn))
     return l, a, b_val
 
-
 def extract_skin_color(image: Image.Image, face_region: Optional[Tuple[int, int, int, int]] = None) -> SkinAnalysis:
-    """
-    从图片中提取肤色
-
-    Args:
-        image: PIL Image 对象
-        face_region: (x, y, w, h) 面部区域，None 则使用图片中心区域
-
-    Returns:
-        SkinAnalysis 对象
-    """
     img = image.convert("RGB")
     w, h = img.size
-
     if face_region:
         x, y, fw, fh = face_region
         crop = img.crop((x, y, x + fw, y + fh))
     else:
-        # 默认取图片中心 40% 区域作为面部区域
         margin_w, margin_h = int(w * 0.3), int(h * 0.3)
         crop = img.crop((margin_w, margin_h, w - margin_w, h - margin_h))
-
-    # 转为 numpy 数组
     pixels = np.array(crop)
-
-    # 过滤掉过亮和过暗的像素（排除高光和阴影）
     brightness = np.mean(pixels, axis=2)
     mask = (brightness > 40) & (brightness < 240)
-
     if np.sum(mask) < 100:
-        # 如果过滤后像素太少，用全部像素
         filtered = pixels.reshape(-1, 3)
     else:
         filtered = pixels[mask]
-
-    # 计算中位数（比均值更能抵抗极端值）
     median_r = int(np.median(filtered[:, 0]))
     median_g = int(np.median(filtered[:, 1]))
     median_b = int(np.median(filtered[:, 2]))
-
-    h, s, v = rgb_to_hsv(median_r, median_g, median_b)
+    h_val, s_val, v_val = rgb_to_hsv(median_r, median_g, median_b)
     l_val, a_val, b_val = rgb_to_lab(median_r, median_g, median_b)
-
     return SkinAnalysis(
-        h=round(h, 1),
-        s=round(s, 1),
-        v=round(v, 1),
-        r=median_r,
-        g=median_g,
-        b=median_b,
-        lab_l=round(l_val, 1),
-        lab_a=round(a_val, 1),
-        lab_b=round(b_val, 1),
+        h=round(h_val, 1), s=round(s_val, 1), v=round(v_val, 1),
+        r=median_r, g=median_g, b=median_b,
+        lab_l=round(l_val, 1), lab_a=round(a_val, 1), lab_b=round(b_val, 1),
     )
 
-
-def detect_color_card_correction(image: Image.Image) -> Optional[Dict[str, Tuple[float, float, float]]]:
-    """
-    检测色卡并计算颜色校正向量。
-    返回每个色块的偏差向量 {(r_diff, g_diff, b_diff), ...}，失败返回 None
-    """
-    # 简化版：在图片四角和中心区域采样，与标准色卡比对
-    # 实际应用中需要用户标记色卡位置，这里做简化处理
-    # 返回 None 表示未检测到色卡，使用无校正分析
-    return None
-
-
 def analyze_warm_cool(skin: SkinAnalysis) -> Tuple[str, float]:
-    """
-    基于肤色 HSV 分析冷暖调
-
-    Returns:
-        (warm/cool/neutral, confidence)
-    """
     h = skin.h
-    a_val = skin.lab_a  # 正值偏红(暖)，负值偏绿(冷)
-    b_val = skin.lab_b  # 正值偏黄(暖)，负值偏蓝(冷)
-
-    # 色相判断
+    a_val = skin.lab_a
+    b_val = skin.lab_b
     h_score = 0
     if h < 25 or h > 335:
-        h_score = 1.0  # 强烈暖调
+        h_score = 1.0
     elif 25 <= h < 45:
-        h_score = 0.6  # 偏暖
+        h_score = 0.6
     elif 45 <= h < 60:
-        h_score = 0.2  # 微暖
+        h_score = 0.2
     elif 180 <= h < 280:
-        h_score = -0.7  # 冷调
+        h_score = -0.7
     elif 280 <= h <= 335:
-        h_score = -0.4  # 偏冷
+        h_score = -0.4
     else:
-        h_score = 0  # 中性
-
-    # Lab a* 判断（红/绿轴）
-    lab_score = 0
-    if a_val > 5:
-        lab_score = 0.5
-    elif a_val < -3:
-        lab_score = -0.5
-
-    # Lab b* 判断（黄/蓝轴）
-    lab_b_score = 0
-    if b_val > 8:
-        lab_b_score = 0.5
-    elif b_val < -5:
-        lab_b_score = -0.5
-
+        h_score = 0
+    lab_score = 0.5 if a_val > 5 else (-0.5 if a_val < -3 else 0)
+    lab_b_score = 0.5 if b_val > 8 else (-0.5 if b_val < -5 else 0)
     total = h_score * 0.5 + lab_score * 0.25 + lab_b_score * 0.25
     confidence = min(abs(total) * 1.5, 1.0)
-
     if total > 0.2:
         return "warm", confidence
     elif total < -0.2:
         return "cool", confidence
     return "neutral", 0.3
 
-
 def analyze_saturation(skin: SkinAnalysis) -> Tuple[str, float]:
-    """分析饱和度水平 → soft/medium/clear"""
     s = skin.s
     if s < 12:
         return "soft", 0.9
@@ -454,9 +375,7 @@ def analyze_saturation(skin: SkinAnalysis) -> Tuple[str, float]:
     else:
         return "clear", 0.9
 
-
 def analyze_brightness(skin: SkinAnalysis) -> Tuple[str, float]:
-    """分析明度水平 → light/medium/deep"""
     v = skin.v
     if v > 75:
         return "light", 0.9
@@ -469,37 +388,12 @@ def analyze_brightness(skin: SkinAnalysis) -> Tuple[str, float]:
     else:
         return "deep", 0.9
 
-
 def questionnaire_to_scores(answers: Dict[str, str]) -> Dict[str, float]:
-    """
-    将问卷答案转为分数
-
-    问卷问题：
-    - q1_vein: 手腕血管颜色 → blue_purple / green / both
-    - q2_jewelry: 更适合的首饰 → silver / gold / both
-    - q3_sun: 晒太阳后 → red_first / tan_direct / both
-    - q4_lipstick: 更适合的口红 → pink_berry / coral_orange / both
-    - q5_white: 白纸对比 → pinkish / yellowish / neither
-    - q6_foundation: 粉底液色调 → cool / warm / neutral
-    - q7_eyes_hair: 瞳孔和发色 → dark_clear / soft_brown / light
-    - q8_style: 喜欢的穿搭风格 → vivid / soft / dark / light
-    """
     scores = {
-        "warm_score": 0.0,
-        "cool_score": 0.0,
-        "soft_score": 0.0,
-        "clear_score": 0.0,
-        "light_score": 0.0,
-        "deep_score": 0.0,
+        "warm_score": 0.0, "cool_score": 0.0,
+        "soft_score": 0.0, "clear_score": 0.0,
+        "light_score": 0.0, "deep_score": 0.0,
     }
-
-    weights = {
-        "q1_vein": 1.5, "q2_jewelry": 1.5, "q3_sun": 1.0,
-        "q4_lipstick": 1.2, "q5_white": 1.0, "q6_foundation": 1.5,
-        "q7_eyes_hair": 0.8, "q8_style": 0.5,
-    }
-
-    # 冷暖判断
     for q, warm_ans, cool_ans, weight in [
         ("q1_vein", "green", "blue_purple", 1.5),
         ("q2_jewelry", "gold", "silver", 1.5),
@@ -517,7 +411,6 @@ def questionnaire_to_scores(answers: Dict[str, str]) -> Dict[str, float]:
             scores["warm_score"] += weight * 0.4
             scores["cool_score"] += weight * 0.4
 
-    # 饱和度判断（净/柔）
     for q, clear_ans, soft_ans, weight in [
         ("q7_eyes_hair", "dark_clear", "soft_brown", 0.8),
         ("q8_style", "vivid", "soft", 0.5),
@@ -528,7 +421,6 @@ def questionnaire_to_scores(answers: Dict[str, str]) -> Dict[str, float]:
         elif ans == soft_ans:
             scores["soft_score"] += weight
 
-    # 明度判断（亮/深）
     for q, light_ans, deep_ans, weight in [
         ("q7_eyes_hair", "light", "dark_clear", 0.8),
         ("q8_style", "light", "dark", 0.5),
@@ -541,7 +433,6 @@ def questionnaire_to_scores(answers: Dict[str, str]) -> Dict[str, float]:
 
     return scores
 
-
 def determine_season_type(
     skin: SkinAnalysis,
     questionnaire_answers: Dict[str, str],
@@ -549,28 +440,11 @@ def determine_season_type(
     question_weight: float = 0.5,
     vein_weight: float = 0.1,
 ) -> PersonalColorResult:
-    """
-    综合判断 12 型季节类型
-
-    Args:
-        skin: 肤色分析结果
-        questionnaire_answers: 问卷答案字典
-        skin_weight: 肤色分析权重
-        question_weight: 问卷权重
-        vein_weight: 血管检测权重
-
-    Returns:
-        PersonalColorResult
-    """
-    # 肤色分析
     warm_cool, wc_conf = analyze_warm_cool(skin)
     saturation, sat_conf = analyze_saturation(skin)
     brightness, bri_conf = analyze_brightness(skin)
-
-    # 问卷分析
     q_scores = questionnaire_to_scores(questionnaire_answers)
 
-    # 血管检测（简化：来自问卷 q1）
     vein = questionnaire_answers.get("q1_vein", "")
     vein_warm = 0.0
     vein_cool = 0.0
@@ -582,11 +456,9 @@ def determine_season_type(
         vein_warm = 0.5
         vein_cool = 0.5
 
-    # 综合分数
     total_warm = (1.0 if warm_cool == "warm" else (0.5 if warm_cool == "neutral" else 0.0))
     total_cool = (1.0 if warm_cool == "cool" else (0.5 if warm_cool == "neutral" else 0.0))
 
-    # 加权合并
     skin_warm = total_warm * wc_conf
     skin_cool = total_cool * wc_conf
 
@@ -599,60 +471,63 @@ def determine_season_type(
 
     is_warm = combined_warm >= combined_cool
 
-    # 综合饱和度和明度
-    combined_soft = (1.0 if saturation == "soft" else 0) * sat_conf * skin_weight + \
-                     (q_scores["soft_score"] / max(q_scores["soft_score"] + q_scores["clear_score"], 1)) * question_weight
-    combined_clear = (1.0 if saturation == "clear" else 0) * sat_conf * skin_weight + \
-                      (q_scores["clear_score"] / max(q_scores["soft_score"] + q_scores["clear_score"], 1)) * question_weight
-
-    combined_light = (1.0 if brightness == "light" else 0) * bri_conf * skin_weight + \
-                      (q_scores["light_score"] / max(q_scores["light_score"] + q_scores["deep_score"], 1)) * question_weight
-    combined_deep = (1.0 if brightness == "deep" else 0) * bri_conf * skin_weight + \
-                     (q_scores["deep_score"] / max(q_scores["light_score"] + q_scores["deep_score"], 1)) * question_weight
-
-    # 确定亚型
-    is_soft = combined_soft > combined_clear
-    is_light = combined_light > combined_deep
-    is_clear = combined_clear > combined_soft
-    is_deep = combined_deep > combined_light
-
-    # 映射到 12 型
-    if is_warm:
-        if is_light:
-            season = "spring_light"
-        elif is_clear:
-            season = "spring_clear"
-        else:
-            season = "spring_soft"
+    # ── 饱和度连续信号（0=最柔 ~ 1=最净）──
+    # 皮肤端：用实际 S 值线性映射（S:0~60 → signal:0~1）
+    skin_sat_signal = min(skin.s / 40.0, 1.0)  # S=40 为满分净，超过也算 1
+    q_sc_total = q_scores["soft_score"] + q_scores["clear_score"]
+    if q_sc_total < 0.01:
+        sat_signal = skin_sat_signal  # 问卷无信号，完全依赖皮肤
     else:
-        if is_soft:
-            if is_light:
-                season = "summer_light"
-            elif is_clear:
-                season = "summer_clear"
-            else:
-                season = "summer_soft"
-        elif is_deep:
-            season = "winter_deep" if not is_warm else "autumn_deep"
-        elif is_clear:
-            season = "winter_clear" if not is_warm else "autumn_clear"
-        elif is_light:
-            season = "winter_light"
-        else:
-            season = "summer_soft" if not is_warm else "autumn_soft"
+        q_sat_signal = q_scores["clear_score"] / q_sc_total
+        sat_signal = skin_sat_signal * skin_weight + q_sat_signal * question_weight
+    is_clear = sat_signal > 0.5
+    is_soft  = not is_clear
 
-    # 如果是暖调，修正秋/冬歧义
+    # ── 明度连续信号（0=最深 ~ 1=最亮）──
+    # 皮肤端：用实际 V 值线性映射（V:20~90 → signal:0~1）
+    skin_bri_signal = max(0.0, min((skin.v - 20) / 70.0, 1.0))
+    q_ld_total = q_scores["light_score"] + q_scores["deep_score"]
+    if q_ld_total < 0.01:
+        bri_signal = skin_bri_signal  # 问卷无信号，完全依赖皮肤
+    else:
+        q_bri_signal = q_scores["light_score"] / q_ld_total
+        bri_signal = skin_bri_signal * skin_weight + q_bri_signal * question_weight
+    is_light = bri_signal > 0.5
+    is_deep  = not is_light
+
+    combined_soft  = 1.0 - sat_signal
+    combined_clear = sat_signal
+    combined_light = bri_signal
+    combined_deep  = 1.0 - bri_signal
+
+    # ── 12 型映射 ──
+    # 阈值说明：
+    #   bri_signal > 0.7 ≈ V > 69  → 明显偏亮（spring_light/winter_light 级）
+    #   bri_signal > 0.5 ≈ V > 55  → 中等偏亮（spring_soft/autumn_clear/summer_light/summer_clear 级）
+    #   bri_signal <= 0.5           → 中等偏深/深（autumn_soft/autumn_deep/winter_deep/summer_soft 级）
     if is_warm:
         if is_deep:
-            season = "autumn_deep"
+            season = "autumn_deep" if is_clear else "autumn_soft"
         elif is_clear:
-            season = "autumn_clear"
-        elif is_soft and not is_light:
-            season = "autumn_soft"
+            # 净 + 亮：V 较高 → spring_clear；V 中等 → autumn_clear
+            season = "spring_clear" if bri_signal > 0.7 else "autumn_clear"
+        else:
+            # 柔 + 亮：V 较高 → spring_light；V 中等 → spring_soft
+            season = "spring_light" if bri_signal > 0.7 else "spring_soft"
+    else:  # cool
+        if is_deep:
+            season = "winter_deep" if is_clear else "summer_soft"
+        elif is_clear:
+            # 净 + 亮：V 较高 → winter_clear；V 中等 → summer_clear
+            season = "winter_clear" if bri_signal > 0.7 else "summer_clear"
+        else:
+            # 柔 + 亮：极浅冷白 → winter_light；普通亮柔 → summer_light；中 → summer_soft
+            if bri_signal > 0.7:
+                season = "winter_light" if skin.v > 78 and skin.s < 10 else "summer_light"
+            else:
+                season = "summer_soft"
 
-    # 置信度计算
     confidence = (wc_conf * skin_weight + 0.7 * question_weight + 0.5 * vein_weight)
-
     rec = COLOR_RECOMMENDATIONS.get(season, COLOR_RECOMMENDATIONS["spring_light"])
 
     return PersonalColorResult(
@@ -674,20 +549,8 @@ def determine_season_type(
         recommendations=rec,
     )
 
-
 def analyze_image(image_path: str, questionnaire_answers: Dict[str, str],
                   face_region: Optional[Tuple[int, int, int, int]] = None) -> PersonalColorResult:
-    """
-    分析一张照片并返回完整诊断结果
-
-    Args:
-        image_path: 图片路径
-        questionnaire_answers: 问卷答案
-        face_region: 可选的面部区域 (x, y, w, h)
-
-    Returns:
-        PersonalColorResult
-    """
     img = Image.open(image_path)
     skin = extract_skin_color(img, face_region)
     return determine_season_type(skin, questionnaire_answers)
